@@ -3,6 +3,7 @@ package internetStore.servlets;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import internetStore.dao.PhoneDao;
 import internetStore.models.Phone;
+import internetStore.util.ContextPath;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -29,28 +30,23 @@ public class PhoneServlet extends HttpServlet {
             String json = objectMapper.writeValueAsString(allPhones);
             resp.getWriter().println(json);
         } else {
-            String[] pathParts = contextPath.split("/");
-            if (pathParts.length == 2) {
-                try {
-                    int phoneId = Integer.parseInt(pathParts[1]);
-                    Phone phone = phoneDao.getById(phoneId);
-                    if (phone != null) {
-                        String json = objectMapper.writeValueAsString(phone);
-                        resp.getWriter().println(json);
-                    } else {
-                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                        resp.getWriter().println("Phone not found");
-                    }
-                } catch (NumberFormatException e) {
-                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    resp.getWriter().println("Invalid phone ID format");
+            try {
+                int phoneId = ContextPath.idFromPath(contextPath);
+                Phone phone = phoneDao.getById(phoneId);
+                if (phone != null) {
+                    String json = objectMapper.writeValueAsString(phone);
+                    resp.getWriter().println(json);
+                } else {
+                    resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    resp.getWriter().println("Phone not found");
                 }
-            } else {
+            } catch (NumberFormatException e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getWriter().println("Invalid path format");
+                resp.getWriter().println("Invalid phone ID format");
             }
         }
     }
+
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -67,24 +63,23 @@ public class PhoneServlet extends HttpServlet {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String contextPath = req.getRequestURI();
-        if (contextPath != null && contextPath.startsWith("/phones/")) {
+        String contextPath = req.getPathInfo();
+        if (contextPath != null && contextPath.startsWith("/")) {
             try {
-                int phoneId = Integer.parseInt(contextPath.substring("/phones/".length()));
+                int phoneId = ContextPath.idFromPath(contextPath);
 
-                boolean isPhoneInList = phoneDao.getAllPhone().stream().anyMatch(phone -> phone.getId() == phoneId);
-
-                if (isPhoneInList) {
+                Phone phoneToDelete = phoneDao.getById(phoneId);
+                if (phoneToDelete != null) {
                     phoneDao.deleteById(phoneId);
                     resp.setStatus(HttpServletResponse.SC_OK);
                     resp.getWriter().println("The Phone with ID " + phoneId + " was deleted.");
                 } else {
                     resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                    resp.getWriter().println("The Phone with ID " + phoneId + " not found..");
+                    resp.getWriter().println("Phone not found");
                 }
             } catch (NumberFormatException e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getWriter().println("Invalid format phone ID.");
+                resp.getWriter().println("Invalid phone ID format");
             }
         } else {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
